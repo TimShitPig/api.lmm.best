@@ -1,5 +1,10 @@
 # LMM API Go package
 
+This is the retained Go-only legacy package flow. New selectable installations
+should use the split pkgbase in `../../packaging/aur/lmm-api/`, where
+`lmm-api-go` is the default backend and `lmm-api-rs` is optional. Keep this
+flow available for existing `lmm-api-git` upgrades until those hosts migrate.
+
 `build-local-package.sh` packages only a prebuilt, version-checked
 `../out/lmm-api` binary. It never reads `/etc/lmm-api/lmm-api.env`, builds Go,
 downloads sources, restarts `lmm-api.service`, or accesses the SQLite database.

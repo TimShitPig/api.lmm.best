@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+readonly CONFIG_PATH=${LMM_API_BACKEND_CONFIG:-/etc/lmm-api/backend.conf}
+readonly BACKEND_ROOT=${LMM_API_BACKEND_ROOT:-/usr/lib/lmm-api/backends}
+
+usage() {
+  printf 'Usage: %s {auto|go|rs|status}\n' "${0##*/}" >&2
+}
+
+configured_backend() {
+  local value
+  value=$(sed -nE 's/^[[:space:]]*LMM_API_BACKEND=(auto|go|rs)[[:space:]]*$/\1/p' \
+    "$CONFIG_PATH" 2>/dev/null | tail -n1)
+  printf '%s\n' "${value:-auto}"
+}
+
+backend_available() {
+  case $1 in
+    go) [[ -x $BACKEND_ROOT/go/lmm-api ]] ;;
+    rs) [[ -x $BACKEND_ROOT/rs/lmm-api-rs ]] ;;
+    auto) return 0 ;;
+  esac
+}
+
+resolved_backend() {
+  local selected=$1
+  if [[ $selected != auto ]]; then
+    backend_available "$selected" && printf '%s\n' "$selected" || printf '%s\n' unavailable
+  elif backend_available go; then
+    printf '%s\n' go
+  elif backend_available rs; then
+    printf '%s\n' rs
+  else
+    printf '%s\n' unavailable
+  fi
+}
+
+show_status() {
+  local selected
+  selected=$(configured_backend)
+  printf 'configured=%s\nresolved=%s\ngo=%s\nrs=%s\n' \
+    "$selected" "$(resolved_backend "$selected")" \
+    "$(backend_available go && printf installed || printf missing)" \
+    "$(backend_available rs && printf installed || printf missing)"
+}
+
+command=${1:-status}
+case $command in
+  status)
+    (($# == 0 || $# == 1)) || { usage; exit 2; }
+    show_status
+    exit 0
+    ;;
+  auto|go|rs)
+    (($# == 1)) || { usage; exit 2; }
+    if [[ $command != auto ]] && ! backend_available "$command"; then
+      printf 'lmm-api-select: %s backend is not installed\n' "$command" >&2
+      exit 1
+    fi
+    ;;
+  *) usage; exit 2 ;;
+esac
+
+config_dir=${CONFIG_PATH%/*}
+[[ -d $config_dir ]] || {
+  printf 'lmm-api-select: config directory does not exist: %s\n' "$config_dir" >&2
+  exit 1
+}
+temporary=$(mktemp "${CONFIG_PATH}.tmp.XXXXXXXX")
+cleanup() { rm -f -- "$temporary"; }
+trap cleanup EXIT
+printf '# Managed by lmm-api-select.\nLMM_API_BACKEND=%s\n' "$command" >"$temporary"
+chmod 0644 "$temporary"
+mv -f -- "$temporary" "$CONFIG_PATH"
+trap - EXIT
+
+printf 'selected=%s\nresolved=%s\n' "$command" "$(resolved_backend "$command")"
+printf '%s\n' 'Restart lmm-api.service to apply the selection.'

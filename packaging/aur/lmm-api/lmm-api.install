@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Preserve the secret environment file across upgrades. Backend selection is a
+# normal pacman backup file and contains no credentials.
+
+set -u
+
+config_path='/etc/lmm-api/lmm-api.env'
+snapshot_dir='/var/lib/lmm-api/package-backups'
+
+snapshot_path() {
+  printf '%s/lmm-api.env.pre-upgrade-%s' "$snapshot_dir" "$1"
+}
+
+pre_upgrade() {
+  local target_version=$1
+  local snapshot
+
+  [[ -f $config_path ]] || return 0
+  snapshot=$(snapshot_path "$target_version")
+  install -d -m 0700 "$snapshot_dir" || return 1
+  cp --preserve=mode,ownership,timestamps -- "$config_path" "$snapshot" || return 1
+}
+
+post_upgrade() {
+  local target_version=$1
+  local snapshot
+
+  snapshot=$(snapshot_path "$target_version")
+  [[ -f $snapshot ]] || return 0
+  cp --preserve=mode,ownership,timestamps -- "$snapshot" "$config_path" || return 1
+}
+
+post_install() {
+  printf '%s\n' 'Install lmm-api-go (default) or lmm-api-rs, then run lmm-api-select status.'
+}
+
+post_remove() {
+  :
+}

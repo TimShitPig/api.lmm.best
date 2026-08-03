@@ -74,3 +74,17 @@ required by `go/AGENTS.md`.
   hash of current Go inputs.
 - Updating upstream Go source can change the oracle contract. Review affected
   Rust differential results before claiming parity or changing route ownership.
+
+## Arch backend packages
+
+- `packaging/aur/lmm-api/` is the canonical split pkgbase for selectable local
+  installs. The `lmm-api` package owns the service, configuration, launcher,
+  and selector; `lmm-api-go` and `lmm-api-rs` own only their implementation
+  payloads below `/usr/lib/lmm-api/backends/`.
+- Both backend packages must remain co-installable. Do not give them overlapping
+  files or make them conflict with each other.
+- The `auto` backend policy must prefer Go. Rust remains an explicit optional
+  migration-preview selection until its route contract reaches Go parity.
+- Keep the fallback-only `packaging/aur/lmm-api-rs-bin/` package isolated from
+  this selectable service package; its host guard and test-instance boundaries
+  must not be weakened or reused as a production switch.

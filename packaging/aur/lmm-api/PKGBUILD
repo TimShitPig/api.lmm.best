@@ -1,0 +1,125 @@
+# Maintainer: LMM API maintainers
+#
+# One pkgbase produces the shared runtime and two independently installable
+# backends.  The common package owns every stable path; backend packages only
+# add files below /usr/lib/lmm-api/backends so Go and Rust can coexist.
+
+pkgbase=lmm-api
+pkgname=(
+  lmm-api
+  lmm-api-go
+  lmm-api-rs
+)
+pkgver="${LMM_API_PKGVER:-0.1.0}"
+pkgrel="${LMM_API_PKGREL:-1}"
+arch=('x86_64')
+url='https://github.com/LIghtJUNction/api.lmm.best'
+options=('!strip')
+source=(
+  'lmm-api-launcher'
+  'lmm-api-select'
+  'lmm-api.service'
+  'lmm-api.env'
+  'backend.conf'
+  'lmm-api.install'
+  'lmm-api-rs.env.example'
+  'lmm-api-go-bin'
+  'lmm-api-rs-bin'
+  'lmm-db-migrate-bin'
+  'frontend-dist.tar'
+  'LICENSE'
+  'NOTICE'
+  'THIRD-PARTY-LICENSES.md'
+)
+sha256sums=(
+  'SKIP'
+  'SKIP'
+  'SKIP'
+  'SKIP'
+  'SKIP'
+  'SKIP'
+  'SKIP'
+  'SKIP'
+  'SKIP'
+  'SKIP'
+  'SKIP'
+  'SKIP'
+  'SKIP'
+  'SKIP'
+)
+
+prepare() {
+  install -d -m0755 "$srcdir/frontend-dist"
+  tar -xf "$srcdir/frontend-dist.tar" -C "$srcdir/frontend-dist"
+}
+
+package_lmm-api() {
+  pkgdesc='LMM API shared service and selectable backend launcher'
+  license=('AGPL-3.0-only')
+  depends=('bash' 'ca-certificates' 'coreutils' 'sed' 'systemd' 'tzdata')
+  optdepends=(
+    "lmm-api-go=${pkgver}-${pkgrel}: default upstream Go backend with LMM changes"
+    "lmm-api-rs=${pkgver}-${pkgrel}: optional Rust migration-preview backend"
+  )
+  provides=("lmm-api-git=${pkgver}")
+  conflicts=('lmm-api-git')
+  replaces=('lmm-api-git')
+  backup=(
+    'etc/lmm-api/backend.conf'
+    'etc/lmm-api/lmm-api.env'
+  )
+  install=lmm-api.install
+
+  install -Dm0755 "$srcdir/lmm-api-launcher" "$pkgdir/usr/bin/lmm-api"
+  install -Dm0755 "$srcdir/lmm-api-select" "$pkgdir/usr/bin/lmm-api-select"
+  install -Dm0644 "$srcdir/lmm-api.service" \
+    "$pkgdir/usr/lib/systemd/system/lmm-api.service"
+  install -Dm0644 "$srcdir/backend.conf" \
+    "$pkgdir/etc/lmm-api/backend.conf"
+  install -Dm0600 "$srcdir/lmm-api.env" \
+    "$pkgdir/etc/lmm-api/lmm-api.env"
+  install -Dm0644 "$srcdir/lmm-api-rs.env.example" \
+    "$pkgdir/usr/share/doc/lmm-api/lmm-api-rs.env.example"
+
+  install -Dm0644 "$srcdir/LICENSE" \
+    "$pkgdir/usr/share/licenses/lmm-api/LICENSE"
+  install -Dm0644 "$srcdir/NOTICE" \
+    "$pkgdir/usr/share/licenses/lmm-api/NOTICE"
+  install -Dm0644 "$srcdir/THIRD-PARTY-LICENSES.md" \
+    "$pkgdir/usr/share/licenses/lmm-api/THIRD-PARTY-LICENSES.md"
+}
+
+package_lmm-api-go() {
+  pkgdesc='LMM API upstream Go backend with maintained LMM changes'
+  license=('AGPL-3.0-only')
+  depends=("lmm-api=${pkgver}-${pkgrel}")
+  provides=(
+    "lmm-api-backend=${pkgver}"
+    "new-api=${pkgver}"
+  )
+  conflicts=('new-api' 'new-api-git')
+
+  install -Dm0755 "$srcdir/lmm-api-go-bin" \
+    "$pkgdir/usr/lib/lmm-api/backends/go/lmm-api"
+}
+
+package_lmm-api-rs() {
+  pkgdesc='LMM API optional Rust migration-preview backend'
+  license=('AGPL-3.0-or-later')
+  depends=("lmm-api=${pkgver}-${pkgrel}" 'gcc-libs' 'glibc')
+  optdepends=(
+    'postgresql: database required by the Rust backend'
+    'valkey: cache and rate-limit service required by the Rust backend'
+  )
+  provides=("lmm-api-backend=${pkgver}")
+
+  install -Dm0755 "$srcdir/lmm-api-rs-bin" \
+    "$pkgdir/usr/lib/lmm-api/backends/rs/lmm-api-rs"
+  install -Dm0755 "$srcdir/lmm-db-migrate-bin" \
+    "$pkgdir/usr/lib/lmm-api/backends/rs/lmm-db-migrate"
+  install -d -m0755 "$pkgdir/usr/share/lmm-api/frontend-dist"
+  cp -R --no-preserve=ownership,mode,timestamps -- "$srcdir/frontend-dist/." \
+    "$pkgdir/usr/share/lmm-api/frontend-dist/"
+  find "$pkgdir/usr/share/lmm-api/frontend-dist" -type d -exec chmod 0755 {} +
+  find "$pkgdir/usr/share/lmm-api/frontend-dist" -type f -exec chmod 0644 {} +
+}

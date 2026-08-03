@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+readonly BACKEND_ROOT=${LMM_API_BACKEND_ROOT:-/usr/lib/lmm-api/backends}
+readonly GO_BINARY="$BACKEND_ROOT/go/lmm-api"
+readonly RS_BINARY="$BACKEND_ROOT/rs/lmm-api-rs"
+
+die() {
+  printf 'lmm-api: %s\n' "$*" >&2
+  exit 78
+}
+
+backend=${LMM_API_BACKEND:-auto}
+case $backend in
+  auto)
+    if [[ -x $GO_BINARY ]]; then
+      backend=go
+    elif [[ -x $RS_BINARY ]]; then
+      backend=rs
+    else
+      die 'no backend is installed; install lmm-api-go (default) or lmm-api-rs'
+    fi
+    ;;
+  go|rs) ;;
+  *) die "invalid LMM_API_BACKEND '$backend'; expected auto, go, or rs" ;;
+esac
+
+case $backend in
+  go)
+    [[ -x $GO_BINARY ]] || die 'Go backend is selected but lmm-api-go is not installed'
+    exec "$GO_BINARY" "$@"
+    ;;
+  rs)
+    [[ -x $RS_BINARY ]] || die 'Rust backend is selected but lmm-api-rs is not installed'
+    : "${LMM_RS_SLOT:=blue}"
+    : "${LMM_RS_LISTEN_ADDR:=127.0.0.1:${PORT:-3000}}"
+    : "${LMM_WEB_DIST_DIR:=${LMM_API_FRONTEND_DIR:-/usr/share/lmm-api/frontend-dist}}"
+    export LMM_RS_SLOT LMM_RS_LISTEN_ADDR LMM_WEB_DIST_DIR
+    exec "$RS_BINARY" "$@"
+    ;;
+esac

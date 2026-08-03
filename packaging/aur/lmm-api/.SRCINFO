@@ -1,0 +1,71 @@
+pkgbase = lmm-api
+	pkgver = 0.1.0
+	pkgrel = 1
+	url = https://github.com/LIghtJUNction/api.lmm.best
+	arch = x86_64
+	options = !strip
+	source = lmm-api-launcher
+	source = lmm-api-select
+	source = lmm-api.service
+	source = lmm-api.env
+	source = backend.conf
+	source = lmm-api.install
+	source = lmm-api-rs.env.example
+	source = lmm-api-go-bin
+	source = lmm-api-rs-bin
+	source = lmm-db-migrate-bin
+	source = frontend-dist.tar
+	source = LICENSE
+	source = NOTICE
+	source = THIRD-PARTY-LICENSES.md
+	sha256sums = SKIP
+	sha256sums = SKIP
+	sha256sums = SKIP
+	sha256sums = SKIP
+	sha256sums = SKIP
+	sha256sums = SKIP
+	sha256sums = SKIP
+	sha256sums = SKIP
+	sha256sums = SKIP
+	sha256sums = SKIP
+	sha256sums = SKIP
+	sha256sums = SKIP
+	sha256sums = SKIP
+	sha256sums = SKIP
+
+pkgname = lmm-api
+	pkgdesc = LMM API shared service and selectable backend launcher
+	install = lmm-api.install
+	license = AGPL-3.0-only
+	depends = bash
+	depends = ca-certificates
+	depends = coreutils
+	depends = sed
+	depends = systemd
+	depends = tzdata
+	optdepends = lmm-api-go=0.1.0-1: default upstream Go backend with LMM changes
+	optdepends = lmm-api-rs=0.1.0-1: optional Rust migration-preview backend
+	provides = lmm-api-git=0.1.0
+	conflicts = lmm-api-git
+	replaces = lmm-api-git
+	backup = etc/lmm-api/backend.conf
+	backup = etc/lmm-api/lmm-api.env
+
+pkgname = lmm-api-go
+	pkgdesc = LMM API upstream Go backend with maintained LMM changes
+	license = AGPL-3.0-only
+	depends = lmm-api=0.1.0-1
+	provides = lmm-api-backend=0.1.0
+	provides = new-api=0.1.0
+	conflicts = new-api
+	conflicts = new-api-git
+
+pkgname = lmm-api-rs
+	pkgdesc = LMM API optional Rust migration-preview backend
+	license = AGPL-3.0-or-later
+	depends = lmm-api=0.1.0-1
+	depends = gcc-libs
+	depends = glibc
+	optdepends = postgresql: database required by the Rust backend
+	optdepends = valkey: cache and rate-limit service required by the Rust backend
+	provides = lmm-api-backend=0.1.0
