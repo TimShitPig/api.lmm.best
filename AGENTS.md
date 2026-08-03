@@ -88,3 +88,16 @@ required by `go/AGENTS.md`.
 - Keep the fallback-only `packaging/aur/lmm-api-rs-bin/` package isolated from
   this selectable service package; its host guard and test-instance boundaries
   must not be weakened or reused as a production switch.
+
+## Production database backups
+
+- PostgreSQL backups copied from production to archczy are cold backup files
+  only. Scheduled jobs must never restore them into the test database, switch a
+  database connection, or restart either API service.
+- Keep the archczy destination fixed at
+  `/var/backups/lmm-api/postgresql/production`, root-owned and inaccessible to
+  the test service account. Preserve local and remote `pg_restore --list`
+  validation, SHA-256 verification, atomic publication, and 14-copy retention.
+- The transfer identity must remain restricted to the root-owned receiver
+  script; do not grant it an interactive shell, PTY, forwarding, or arbitrary
+  command execution.

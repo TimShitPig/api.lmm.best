@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily LMM API PostgreSQL backup to archczy
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 Asia/Shanghai
+Persistent=true
+RandomizedDelaySec=10m
+Unit=lmm-api-postgresql-backup.service
+
+[Install]
+WantedBy=timers.target

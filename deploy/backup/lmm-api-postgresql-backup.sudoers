@@ -1,0 +1,1 @@
+arch ALL=(root) NOPASSWD: /usr/local/lib/lmm-api/receive-postgresql-backup.sh --original-command *

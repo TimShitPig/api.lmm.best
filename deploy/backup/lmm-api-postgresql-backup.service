@@ -1,0 +1,37 @@
+[Unit]
+Description=LMM API PostgreSQL backup to archczy
+Wants=network-online.target
+After=network-online.target postgresql.service
+
+[Service]
+Type=oneshot
+User=postgres
+Group=postgres
+UMask=0077
+EnvironmentFile=/etc/lmm-api/postgresql-backup.env
+LoadCredential=archczy-postgresql-backup.identity:/etc/lmm-api/credentials/archczy-postgresql-backup.identity
+LoadCredential=archczy-postgresql-backup.known_hosts:/etc/lmm-api/credentials/archczy-postgresql-backup.known_hosts
+ExecStart=/usr/local/lib/lmm-api/backup-postgresql-to-archczy.sh
+TimeoutStartSec=1h
+RuntimeDirectory=lmm-api-postgresql-backup
+RuntimeDirectoryMode=0700
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+SystemCallArchitectures=native
+ReadWritePaths=/run/lmm-api-postgresql-backup
+
+[Install]
+WantedBy=multi-user.target
