@@ -1,6 +1,6 @@
 # Identity-admin migration contract
 
-Source: `legacy-go-backup/.../controller/user.go` (`GetAllUsers`, `SearchUsers`,
+Source: `go/controller/user.go` (`GetAllUsers`, `SearchUsers`,
 `GetUser`, `CreateUser`, `UpdateUser`, `DeleteUser`, `ManageUser`) and
 `model/user.go` (`GetAllUsers`, `SearchUsers`, `UpdateWithTx`).
 

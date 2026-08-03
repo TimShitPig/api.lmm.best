@@ -1,16 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly BASE_COMMIT='3e39995a092f960882db6bf455b371d32591dc47'
-readonly RELEASE_VERSION='0.1.0.r29.g3e39995.payrate2'
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-REPO_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
-PATCH_FILE="$SCRIPT_DIR/channel-pricing.patch"
+REPO_DIR="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
 OUT_DIR="$SCRIPT_DIR/out"
 WEB_DIST=''
+SOURCE_REF='HEAD'
 
 usage() {
-  printf 'Usage: %s --web-dist /path/to/verified/web-dist\n' "${0##*/}" >&2
+  printf 'Usage: %s --web-dist /path/to/verified/web-dist [--source-ref REF]\n' "${0##*/}" >&2
 }
 
 while (($# > 0)); do
@@ -18,6 +16,11 @@ while (($# > 0)); do
     --web-dist)
       (($# >= 2)) || { usage; exit 2; }
       WEB_DIST="$2"
+      shift 2
+      ;;
+    --source-ref)
+      (($# >= 2)) || { usage; exit 2; }
+      SOURCE_REF="$2"
       shift 2
       ;;
     -h|--help)
@@ -33,9 +36,22 @@ done
 
 [[ -n "$WEB_DIST" ]] || { usage; exit 2; }
 [[ -d "$WEB_DIST" ]] || { printf 'web dist is not a directory: %s\n' "$WEB_DIST" >&2; exit 1; }
-[[ -f "$PATCH_FILE" ]] || { printf 'missing patch: %s\n' "$PATCH_FILE" >&2; exit 1; }
+git -C "$REPO_DIR" rev-parse --verify --quiet "${SOURCE_REF}^{commit}" >/dev/null || {
+  printf 'source ref is not a commit: %s\n' "$SOURCE_REF" >&2
+  exit 1
+}
+git -C "$REPO_DIR" cat-file -e "${SOURCE_REF}:go/go.mod" 2>/dev/null || {
+  printf 'source ref does not contain go/go.mod: %s\n' "$SOURCE_REF" >&2
+  exit 1
+}
 
-SOURCE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/lmm-channel-pricing-build.XXXXXX")"
+RELEASE_VERSION=$(sed -n "s/^pkgver=['\"]\{0,1\}\([^'\"]*\).*/\1/p" "$SCRIPT_DIR/packaging/PKGBUILD")
+[[ -n "$RELEASE_VERSION" ]] || {
+  printf '%s\n' 'could not read pkgver from packaging/PKGBUILD' >&2
+  exit 1
+}
+SOURCE_REVISION=$(git -C "$REPO_DIR" rev-parse "${SOURCE_REF}^{commit}")
+SOURCE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/lmm-go-build.XXXXXX")"
 OUTPUT_TMP=''
 cleanup() {
   rm -rf -- "$SOURCE_DIR"
@@ -45,9 +61,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-git -C "$REPO_DIR" archive "$BASE_COMMIT" | tar -x -C "$SOURCE_DIR"
-git -C "$SOURCE_DIR" apply --check "$PATCH_FILE"
-git -C "$SOURCE_DIR" apply "$PATCH_FILE"
+git -C "$REPO_DIR" archive "${SOURCE_REF}:go" | tar -x -C "$SOURCE_DIR"
 mkdir -p "$SOURCE_DIR/web/dist"
 cp -a -- "$WEB_DIST/." "$SOURCE_DIR/web/dist/"
 
@@ -71,12 +85,13 @@ if [[ "$file_output" != *'statically linked'* ]]; then
   exit 1
 fi
 ldd_output="$(ldd "$OUTPUT_TMP" 2>&1 || true)"
-if [[ "$ldd_output" != *'not a dynamic executable'* ]]; then
+if [[ "$ldd_output" != *'not a dynamic executable'* && "$ldd_output" != *'statically linked'* ]]; then
   printf 'static ldd assertion failed: %s\n' "$ldd_output" >&2
   exit 1
 fi
 mv -f -- "$OUTPUT_TMP" "$OUT_DIR/lmm-api"
 OUTPUT_TMP=''
 
-printf 'built %s from %s version=%s\n' "$OUT_DIR/lmm-api" "$BASE_COMMIT" "$RELEASE_VERSION"
+printf 'built %s from %s (%s) version=%s\n' \
+  "$OUT_DIR/lmm-api" "$SOURCE_REF" "$SOURCE_REVISION" "$RELEASE_VERSION"
 sha256sum "$OUT_DIR/lmm-api"

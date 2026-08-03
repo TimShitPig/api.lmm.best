@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/oauth"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -49,19 +51,23 @@ func (*authFlowTestOAuthProvider) GetProviderPrefix() string                    
 
 func setupAuthFlowControllerTest(t *testing.T) *authFlowTestOAuthProvider {
 	t.Helper()
+	require.NoError(t, i18n.Init())
 	previousDB := model.DB
 	previousType := common.MainDatabaseType()
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.AuthFlow{}))
+	require.NoError(t, db.AutoMigrate(&model.AuthFlow{}, &model.User{}, &model.UserSession{}))
 	model.DB = db
 	common.SetMainDatabaseType(common.DatabaseTypeSQLite)
+	previousRedis := common.RedisEnabled
+	common.RedisEnabled = false
 	provider := &authFlowTestOAuthProvider{}
 	oauth.Register("auth-flow-test", provider)
 	t.Cleanup(func() {
 		oauth.Unregister("auth-flow-test")
 		model.DB = previousDB
 		common.SetMainDatabaseType(previousType)
+		common.RedisEnabled = previousRedis
 	})
 	return provider
 }
@@ -219,6 +225,65 @@ func TestOAuthBindProviderErrorConsumesSessionBoundFlow(t *testing.T) {
 	assert.Equal(t, http.StatusOK, response.Code)
 	_, err = model.GetAuthFlow(flowToken, model.AuthFlowMatch{Purpose: model.AuthFlowPurposeOAuth})
 	assert.ErrorIs(t, err, model.ErrAuthFlowConsumed)
+	assert.Zero(t, provider.exchangeCalls)
+	assert.Zero(t, provider.userInfoCalls)
+}
+
+func TestOAuthBindCallbackValidatesServerSideSessionWithoutAuthorizationHeader(t *testing.T) {
+	provider := setupAuthFlowControllerTest(t)
+	user := &model.User{
+		Username: "oauth-bind-callback-user", Password: "unused", Role: common.RoleCommonUser,
+		Status: common.UserStatusEnabled, Group: "default", AuthVersion: 1,
+	}
+	require.NoError(t, model.DB.Create(user).Error)
+	bundle, err := service.CreateLoginSession(user.Id, "password", "127.0.0.1", "oauth-bind-test")
+	require.NoError(t, err)
+	flowToken, _, err := model.CreateAuthFlow(model.AuthFlowCreate{
+		Purpose: model.AuthFlowPurposeOAuth, Provider: "auth-flow-test", Intent: model.AuthFlowIntentBind,
+		UserId: user.Id, SessionId: bundle.Session.SID, Payload: `{}`, ExpiresAt: time.Now().Add(time.Minute),
+	})
+	require.NoError(t, err)
+
+	router := gin.New()
+	router.GET("/api/oauth/:provider", HandleOAuth)
+	request := httptest.NewRequest(http.MethodGet, "/api/oauth/auth-flow-test?state="+flowToken+"&error=access_denied", nil)
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+
+	assert.Equal(t, http.StatusOK, response.Code)
+	_, err = model.GetAuthFlow(flowToken, model.AuthFlowMatch{Purpose: model.AuthFlowPurposeOAuth})
+	assert.ErrorIs(t, err, model.ErrAuthFlowConsumed)
+	assert.Zero(t, provider.exchangeCalls)
+	assert.Zero(t, provider.userInfoCalls)
+}
+
+func TestOAuthBindCallbackRejectsRevokedServerSideSession(t *testing.T) {
+	provider := setupAuthFlowControllerTest(t)
+	user := &model.User{
+		Username: "oauth-bind-revoked-user", Password: "unused", Role: common.RoleCommonUser,
+		Status: common.UserStatusEnabled, Group: "default", AuthVersion: 1,
+	}
+	require.NoError(t, model.DB.Create(user).Error)
+	bundle, err := service.CreateLoginSession(user.Id, "password", "127.0.0.1", "oauth-bind-test")
+	require.NoError(t, err)
+	flowToken, _, err := model.CreateAuthFlow(model.AuthFlowCreate{
+		Purpose: model.AuthFlowPurposeOAuth, Provider: "auth-flow-test", Intent: model.AuthFlowIntentBind,
+		UserId: user.Id, SessionId: bundle.Session.SID, Payload: `{}`, ExpiresAt: time.Now().Add(time.Minute),
+	})
+	require.NoError(t, err)
+	revoked, err := model.RevokeUserSession(user.Id, bundle.Session.SID, "test")
+	require.NoError(t, err)
+	require.True(t, revoked)
+
+	router := gin.New()
+	router.GET("/api/oauth/:provider", HandleOAuth)
+	request := httptest.NewRequest(http.MethodGet, "/api/oauth/auth-flow-test?state="+flowToken+"&error=access_denied", nil)
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+
+	assert.Equal(t, http.StatusForbidden, response.Code)
+	_, err = model.GetAuthFlow(flowToken, model.AuthFlowMatch{Purpose: model.AuthFlowPurposeOAuth})
+	assert.NoError(t, err)
 	assert.Zero(t, provider.exchangeCalls)
 	assert.Zero(t, provider.userInfoCalls)
 }

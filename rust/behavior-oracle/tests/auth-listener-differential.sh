@@ -4,8 +4,8 @@
 set -euo pipefail
 
 repo_root=$(git rev-parse --show-toplevel)
-legacy_revision=5418ce6b6d45ed69167b0aad53f2f595e5bc8de9
-legacy_root="$repo_root/legacy-go-backup/$legacy_revision"
+legacy_revision=$(git -C "$repo_root" rev-parse HEAD)
+legacy_root="$repo_root/go"
 curl_connect_timeout=2
 curl_max_time=15
 approval_mode=${LMM_AUTH_LISTENER_APPROVAL:-0}
@@ -247,9 +247,8 @@ assert_distinct_ports "PostgreSQL:$pg_port" "Go_HTTP:$go_port" "Rust_HTTP:$rust_
 for item in "PostgreSQL:$pg_port" "Go_HTTP:$go_port" "Rust_HTTP:$rust_port" "Go_Valkey:$go_valkey_port" "Rust_Valkey:$rust_valkey_port"; do preflight_port "${item%%:*}" "${item##*:}"; done
 
 assert_frozen_inputs() {
-  [[ -d $legacy_root && ${legacy_root##*/} == "$legacy_revision" && -f $legacy_root/SHA256SUMS && -f $legacy_root/GIT-LS-FILES-S.tsv ]] || { echo 'frozen Go archive or manifest missing' >&2; return 1; }
-  (cd "$legacy_root" && sha256sum --check --status SHA256SUMS) || { echo 'frozen Go content hash verification failed' >&2; return 1; }
-  frozen_go_manifest_sha256=$(sha256sum "$legacy_root/SHA256SUMS" "$legacy_root/GIT-LS-FILES-S.tsv" | sha256sum | awk '{print $1}')
+  [[ -d $legacy_root && -f $legacy_root/go.mod ]] || { echo 'maintained Go source missing' >&2; return 1; }
+  frozen_go_manifest_sha256=$(bash "$repo_root/rust/behavior-oracle/go-source-manifest.sh" | sha256sum | awk '{print $1}')
   rust_build_input_sha256=$(rust_build_input_manifest_sha256)
   [[ $frozen_go_manifest_sha256 =~ ^[[:xdigit:]]{64}$ && $rust_build_input_sha256 =~ ^[[:xdigit:]]{64}$ ]]
 }

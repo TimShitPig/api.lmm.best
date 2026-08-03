@@ -167,3 +167,26 @@ func TestEpayWebhookEnabledRequiresTopUpAndWebhookConfig(t *testing.T) {
 	operation_setting.PayMethods = nil
 	require.False(t, isEpayWebhookEnabled())
 }
+
+func TestFastPayWebhookEnabledRequiresShopNo(t *testing.T) {
+	confirmPaymentComplianceForTest(t)
+	originalAddress := setting.FastPayAddress
+	originalMerchantNo := setting.FastPayMerchantNo
+	originalShopNo := setting.FastPayShopNo
+	originalAPISecret := setting.FastPayApiSecret
+	t.Cleanup(func() {
+		setting.FastPayAddress = originalAddress
+		setting.FastPayMerchantNo = originalMerchantNo
+		setting.FastPayShopNo = originalShopNo
+		setting.FastPayApiSecret = originalAPISecret
+	})
+
+	setting.FastPayAddress = "https://fastpay.example.com/fastpay-server"
+	setting.FastPayMerchantNo = "M123"
+	setting.FastPayShopNo = ""
+	setting.FastPayApiSecret = "fastpay_secret"
+	require.False(t, isFastPayWebhookEnabled())
+
+	setting.FastPayShopNo = "S123"
+	require.True(t, isFastPayWebhookEnabled())
+}

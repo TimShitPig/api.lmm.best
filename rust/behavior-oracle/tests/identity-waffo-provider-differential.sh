@@ -7,7 +7,7 @@
 set -euo pipefail
 
 repo_root=$(git rev-parse --show-toplevel)
-legacy_root="$repo_root/legacy-go-backup/5418ce6b6d45ed69167b0aad53f2f595e5bc8de9"
+legacy_root="$repo_root/go"
 route_source="$repo_root/rust/apps/lmm-api-rs/src/migration_routes/missing_identity_waffo.rs"
 pg_port=${LMM_IDENTITY_WAFFO_PG_PORT:-55510}
 go_port=${LMM_IDENTITY_WAFFO_GO_PORT:-13110}

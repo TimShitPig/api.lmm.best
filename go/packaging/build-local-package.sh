@@ -10,10 +10,10 @@ if (( EUID == 0 )); then
 fi
 
 package_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-hotfix_root=$(cd -- "$package_dir/.." && pwd)
-repo_root=$(cd -- "$hotfix_root/.." && pwd)
-input_binary="$hotfix_root/out/lmm-api"
-package_output=${LMM_API_PKGDEST:-"$hotfix_root/out/packages"}
+go_root=$(cd -- "$package_dir/.." && pwd)
+repo_root=$(cd -- "$go_root/.." && pwd)
+input_binary="$go_root/out/lmm-api"
+package_output=${LMM_API_PKGDEST:-"$go_root/out/packages"}
 
 for tool in makepkg pacman bsdtar vercmp file readelf ldd sha256sum; do
   command -v "$tool" >/dev/null 2>&1 || {

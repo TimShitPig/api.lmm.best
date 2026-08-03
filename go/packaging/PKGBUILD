@@ -1,12 +1,12 @@
 # Maintainer: LMM API maintainers
 #
-# This package is intentionally a local, prebuilt-binary hotfix package. It
+# This package is intentionally a local, prebuilt-binary package. It
 # does not clone, fetch, compile, migrate a database, or restart a service.
 
 pkgname=lmm-api-git
 pkgver=0.1.0.r29.g3e39995.payrate2
 pkgrel=1
-pkgdesc='LMM API model management and distribution system (local Go hotfix)'
+pkgdesc='LMM API model management and distribution system (local Go build)'
 arch=('x86_64')
 url='https://github.com/LIghtJUNction/api.lmm.best'
 license=('AGPL-3.0-only')

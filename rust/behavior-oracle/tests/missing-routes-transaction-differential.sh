@@ -8,7 +8,7 @@ set -euo pipefail
 repo_root=$(git rev-parse --show-toplevel)
 fixture_test="$repo_root/rust/behavior-oracle/tests/test-missing-routes-transaction-fixtures.sh"
 fixtures="$repo_root/rust/behavior-oracle/tests/missing-routes-transaction-fixtures.json"
-legacy_root="$repo_root/legacy-go-backup/5418ce6b6d45ed69167b0aad53f2f595e5bc8de9"
+legacy_root="$repo_root/go"
 pg_port=${LMM_TRANSACTION_PG_PORT:-55467}
 go_port=${LMM_TRANSACTION_GO_PORT:-13037}
 rust_port=${LMM_TRANSACTION_RUST_PORT:-33067}

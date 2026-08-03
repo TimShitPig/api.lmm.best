@@ -50,6 +50,13 @@ func SubscriptionRequestEpay(c *gin.Context) {
 		return
 	}
 
+	if fastPayMethod, useFastPay := resolveFastPayMethod(req.PaymentMethod); useFastPay {
+		c.Set("parsed_plan_id", req.PlanId)
+		c.Set("parsed_payment_method", fastPayMethod)
+		SubscriptionRequestFastPay(c)
+		return
+	}
+
 	userId := c.GetInt("id")
 	if plan.MaxPurchasePerUser > 0 {
 		count, err := model.CountUserSubscriptionsByPlan(userId, plan.Id)

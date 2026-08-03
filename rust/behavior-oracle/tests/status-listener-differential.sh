@@ -2,13 +2,12 @@
 # Isolated real-TCP Go/Rust differential for GET /api/status only.
 set -euo pipefail
 set +x
-repo_root=$(git rev-parse --show-toplevel); legacy_revision=5418ce6b6d45ed69167b0aad53f2f595e5bc8de9; legacy_root="$repo_root/legacy-go-backup/$legacy_revision"
+repo_root=$(git rev-parse --show-toplevel); legacy_root="$repo_root/go"
 approval_mode=${LMM_STATUS_APPROVAL:-0}; probe_only=${LMM_STATUS_PROBE_ONLY:-0}; curl_connect_timeout=2; curl_max_time=12
 case "$approval_mode:$probe_only" in 0:0|1:0|0:1) ;; *) echo 'approval mode refuses probe-only' >&2; exit 2;; esac
 for command in cargo curl flock git go initdb jq pg_ctl postgres psql ss valkey-cli valkey-server od sha256sum; do command -v "$command" >/dev/null || exit 1; done
-[[ $(postgres --version) == *'PostgreSQL) 18.'* && -f "$legacy_root/SHA256SUMS" && -f "$legacy_root/GIT-LS-FILES-S.tsv" ]] || exit 1
-(cd "$legacy_root" && sha256sum --check --status SHA256SUMS) || exit 1
-go_hash=$(sha256sum "$legacy_root/SHA256SUMS" "$legacy_root/GIT-LS-FILES-S.tsv" | sha256sum | awk '{print $1}'); build_input_hash(){ (cd "$repo_root" && { printf '%s\0' rust/Cargo.toml rust/Cargo.lock rust/apps/lmm-api-rs/Cargo.toml; [[ ! -f rust/apps/lmm-api-rs/build.rs ]] || printf '%s\0' rust/apps/lmm-api-rs/build.rs; git ls-files -co --exclude-standard -z -- rust/apps/lmm-api-rs/src rust/apps/lmm-api-rs/assets rust/crates; } | while IFS= read -r -d '' path; do [[ -f $path ]] && sha256sum "$path"; done | LC_ALL=C sort | sha256sum | awk '{print $1}'); }; rust_hash=$(build_input_hash)
+[[ $(postgres --version) == *'PostgreSQL) 18.'* && -f "$legacy_root/go.mod" ]] || exit 1
+go_hash=$(bash "$repo_root/rust/behavior-oracle/go-source-manifest.sh" | sha256sum | awk '{print $1}'); build_input_hash(){ (cd "$repo_root" && { printf '%s\0' rust/Cargo.toml rust/Cargo.lock rust/apps/lmm-api-rs/Cargo.toml; [[ ! -f rust/apps/lmm-api-rs/build.rs ]] || printf '%s\0' rust/apps/lmm-api-rs/build.rs; git ls-files -co --exclude-standard -z -- rust/apps/lmm-api-rs/src rust/apps/lmm-api-rs/assets rust/crates; } | while IFS= read -r -d '' path; do [[ -f $path ]] && sha256sum "$path"; done | LC_ALL=C sort | sha256sum | awk '{print $1}'); }; rust_hash=$(build_input_hash)
 if [[ $probe_only == 1 ]]; then jq -cn --arg go "$go_hash" --arg rust "$rust_hash" '{test:"status-listener-differential",mode:"probe",approval_eligible:false,frozen_go_manifest_sha256:$go,rust_source_sha256:$rust,result:"passed"}'; exit 0; fi
 runtime=$(mktemp -d /tmp/lmm-status-listener.XXXXXX); build=$(mktemp -d "${TMPDIR:-/tmp}/lmm-status-go.XXXXXX"); go_pid=''; rust_pid=''; go_valkey_pid=''; rust_valkey_pid=''; pg_pid=''
 exec 9>/tmp/lmm-listener-differential-heavy.lock

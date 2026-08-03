@@ -78,7 +78,7 @@ valkey-cli -h 127.0.0.1 -p "$valkey_port" ping >/dev/null
 # runtime.  The root filesystem may intentionally be too small for PostgreSQL
 # or a Go build; using /tmp here would make that host constraint look like a
 # route failure.
-legacy_root="$repo_root/legacy-go-backup/5418ce6b6d45ed69167b0aad53f2f595e5bc8de9"
+legacy_root="$repo_root/go"
 [[ -d $legacy_root ]] || { echo "missing frozen Go oracle source: $legacy_root" >&2; exit 1; }
 cp -a "$legacy_root/." "$runtime/go-source"
 mkdir -p "$runtime/go-source/web/dist"

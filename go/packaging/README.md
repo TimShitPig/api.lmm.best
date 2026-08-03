@@ -1,4 +1,4 @@
-# LMM API legacy Go hotfix package
+# LMM API Go package
 
 `build-local-package.sh` packages only a prebuilt, version-checked
 `../out/lmm-api` binary. It never reads `/etc/lmm-api/lmm-api.env`, builds Go,

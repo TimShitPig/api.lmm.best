@@ -5,7 +5,7 @@
 set -euo pipefail
 
 repo_root=$(git rev-parse --show-toplevel)
-legacy_root="$repo_root/legacy-go-backup/5418ce6b6d45ed69167b0aad53f2f595e5bc8de9"
+legacy_root="$repo_root/go"
 pg_port=${LMM_API_TOKEN_TCP_PG_PORT:-55437}
 go_port=${LMM_API_TOKEN_TCP_GO_PORT:-13004}
 rust_port=${LMM_API_TOKEN_TCP_RUST_PORT:-33034}

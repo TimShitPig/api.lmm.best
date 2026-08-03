@@ -2,8 +2,7 @@
 set -euo pipefail
 
 repo_root=$(git rev-parse --show-toplevel)
-revision=5418ce6b6d45ed69167b0aad53f2f595e5bc8de9
-legacy="$repo_root/legacy-go-backup/$revision"
+legacy="$repo_root/go"
 runtime=$(mktemp -d /tmp/lmm-legacy-oracle.XXXXXX)
 oracle_port=${ORACLE_PORT:-13001}
 valkey_port=${ORACLE_VALKEY_PORT:-16379}

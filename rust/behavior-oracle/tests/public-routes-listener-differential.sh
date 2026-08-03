@@ -6,8 +6,7 @@ set -euo pipefail
 set +x
 
 repo_root=$(git rev-parse --show-toplevel)
-legacy_revision=5418ce6b6d45ed69167b0aad53f2f595e5bc8de9
-legacy_root="$repo_root/legacy-go-backup/$legacy_revision"
+legacy_root="$repo_root/go"
 approval_mode=${LMM_PUBLIC_ROUTES_APPROVAL:-0}
 probe_only=${LMM_PUBLIC_ROUTES_PROBE_ONLY:-0}
 curl_connect_timeout=2
@@ -17,9 +16,8 @@ go_pid=''; rust_pid=''; go_valkey_pid=''; rust_valkey_pid=''; pg_pid=''
 case "$approval_mode:$probe_only" in 0:0|1:0|0:1) ;; *) echo 'approval mode refuses probe-only' >&2; exit 2;; esac
 for command in cargo curl flock git go initdb jq pg_ctl postgres psql sqlite3 ss valkey-cli valkey-server od sha256sum; do command -v "$command" >/dev/null || { echo "required command unavailable: $command" >&2; exit 1; }; done
 [[ $(postgres --version) == *'PostgreSQL) 18.'* ]] || { echo 'requires PostgreSQL 18' >&2; exit 1; }
-[[ -f "$legacy_root/SHA256SUMS" && -f "$legacy_root/GIT-LS-FILES-S.tsv" ]] || { echo 'pinned Go archive manifest missing' >&2; exit 1; }
-(cd "$legacy_root" && sha256sum --check --status SHA256SUMS) || { echo 'pinned Go archive hash mismatch' >&2; exit 1; }
-frozen_go_manifest_sha256=$(sha256sum "$legacy_root/SHA256SUMS" "$legacy_root/GIT-LS-FILES-S.tsv" | sha256sum | awk '{print $1}')
+[[ -f "$legacy_root/go.mod" ]] || { echo 'maintained Go source missing' >&2; exit 1; }
+frozen_go_manifest_sha256=$(bash "$repo_root/rust/behavior-oracle/go-source-manifest.sh" | sha256sum | awk '{print $1}')
 build_input_hash() {
   (cd "$repo_root" && {
     printf '%s\0' rust/Cargo.toml rust/Cargo.lock rust/apps/lmm-api-rs/Cargo.toml

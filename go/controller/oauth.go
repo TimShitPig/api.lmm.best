@@ -13,6 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/oauth"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -125,12 +126,29 @@ func HandleOAuth(c *gin.Context) {
 	// 2. Bind flows are bound to the live dashboard Session that created them.
 	if pendingFlow.Intent == model.AuthFlowIntentBind {
 		identity, ok := middleware.GetSessionAuthIdentity(c)
-		if !ok || identity.UserID != pendingFlow.UserId || identity.SessionID != pendingFlow.SessionId {
+		if ok {
+			if identity.UserID != pendingFlow.UserId || identity.SessionID != pendingFlow.SessionId {
+				c.JSON(http.StatusForbidden, gin.H{
+					"success": false,
+					"message": i18n.T(c, i18n.MsgOAuthStateInvalid),
+				})
+				return
+			}
+		} else if strings.TrimSpace(c.GetHeader("Authorization")) != "" {
 			c.JSON(http.StatusForbidden, gin.H{
 				"success": false,
 				"message": i18n.T(c, i18n.MsgOAuthStateInvalid),
 			})
 			return
+		} else {
+			identity, err = service.ValidateSessionReference(pendingFlow.UserId, pendingFlow.SessionId)
+			if err != nil {
+				c.JSON(http.StatusForbidden, gin.H{
+					"success": false,
+					"message": i18n.T(c, i18n.MsgOAuthStateInvalid),
+				})
+				return
+			}
 		}
 		consumeMatch.UserId = identity.UserID
 		consumeMatch.SessionId = identity.SessionID

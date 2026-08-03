@@ -37,7 +37,6 @@ skills-lock.json
 /rust/target/
 /rust/apps/lmm-api-rs/tests/root-route-acceptance/target/
 /packaging/aur/lmm-api-rs-bin/out/
-/legacy-go-backup/
 /.codegraph/
 /SWAP.md
 

@@ -11,7 +11,7 @@
 set -euo pipefail
 
 repo_root=$(git rev-parse --show-toplevel)
-legacy_root="$repo_root/legacy-go-backup/5418ce6b6d45ed69167b0aad53f2f595e5bc8de9"
+legacy_root="$repo_root/go"
 pg_port=${LMM_RATIO_SYNC_PG_PORT:-55487}
 go_port=${LMM_RATIO_SYNC_GO_PORT:-13087}
 rust_port=${LMM_RATIO_SYNC_RUST_PORT:-33087}

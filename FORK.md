@@ -14,3 +14,8 @@ Upstream updates should be imported as reviewed, pinned snapshots. Compare the
 new snapshot with the recorded commit, preserve local branding as a small
 focused patch, retain compatibility identifiers, and run the relevant
 validation before accepting the update.
+
+The maintained upstream subtree now lives in `go/`. Use
+`bash go/sync-upstream.sh main` from a clean synchronization branch, resolve
+the subtree merge against local LMM API changes, update the snapshot above,
+and run the checks documented in `go/LMM-MAINTENANCE.md`.

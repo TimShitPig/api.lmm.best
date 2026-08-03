@@ -14,7 +14,7 @@ EOF
 fi
 
 repo_root=$(git rev-parse --show-toplevel)
-legacy_root="$repo_root/legacy-go-backup/5418ce6b6d45ed69167b0aad53f2f595e5bc8de9"
+legacy_root="$repo_root/go"
 pg_port=${LMM_IDENTITY_SECURITY_PG_PORT:-55459}
 go_port=${LMM_IDENTITY_SECURITY_GO_PORT:-13019}
 rust_port=${LMM_IDENTITY_SECURITY_RUST_PORT:-33049}

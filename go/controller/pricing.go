@@ -4,6 +4,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 
 	"github.com/gin-gonic/gin"
@@ -33,10 +34,107 @@ func filterPricingByUsableGroups(pricing []model.Pricing, usableGroup map[string
 	return filtered
 }
 
+type pricingView struct {
+	pricing     []model.Pricing
+	groupRatio  map[string]float64
+	usableGroup map[string]string
+}
+
+func publicPricingGroupDescriptions(
+	pricing []model.Pricing,
+	groupRatio map[string]float64,
+) map[string]string {
+	descriptions := make(map[string]string)
+	for group := range groupRatio {
+		if group != "all" {
+			descriptions[group] = setting.GetUsableGroupDescription(group)
+		}
+	}
+	for _, item := range pricing {
+		for _, group := range item.EnableGroup {
+			if group == "all" {
+				continue
+			}
+			if _, exists := descriptions[group]; !exists {
+				descriptions[group] = setting.GetUsableGroupDescription(group)
+			}
+		}
+	}
+	return descriptions
+}
+
+func buildPricingView(
+	pricing []model.Pricing,
+	groupRatio map[string]float64,
+	groupDescriptions map[string]string,
+	authenticated bool,
+) pricingView {
+	if authenticated {
+		filteredRatio := make(map[string]float64)
+		for group, ratio := range groupRatio {
+			if _, ok := groupDescriptions[group]; ok {
+				filteredRatio[group] = ratio
+			}
+		}
+		return pricingView{
+			pricing:     filterPricingByUsableGroups(pricing, groupDescriptions),
+			groupRatio:  filteredRatio,
+			usableGroup: groupDescriptions,
+		}
+	}
+
+	representedGroups := make(map[string]struct{})
+	allGroupsEnabled := false
+	for _, item := range pricing {
+		for _, group := range item.EnableGroup {
+			if group == "all" {
+				allGroupsEnabled = true
+				continue
+			}
+			representedGroups[group] = struct{}{}
+		}
+	}
+
+	disclosedRatios := make(map[string]float64)
+	disclosedGroups := make(map[string]string)
+	for group, ratio := range groupRatio {
+		if group == "all" {
+			continue
+		}
+		if _, represented := representedGroups[group]; !allGroupsEnabled && !represented {
+			continue
+		}
+		disclosedRatios[group] = ratio
+		description := group
+		if configuredDescription, ok := groupDescriptions[group]; ok {
+			description = configuredDescription
+		}
+		disclosedGroups[group] = description
+	}
+	if !allGroupsEnabled {
+		for group := range representedGroups {
+			if _, disclosed := disclosedRatios[group]; disclosed {
+				continue
+			}
+			disclosedRatios[group] = 1
+			description := group
+			if configuredDescription, ok := groupDescriptions[group]; ok {
+				description = configuredDescription
+			}
+			disclosedGroups[group] = description
+		}
+	}
+
+	return pricingView{
+		pricing:     pricing,
+		groupRatio:  disclosedRatios,
+		usableGroup: disclosedGroups,
+	}
+}
+
 func GetPricing(c *gin.Context) {
 	pricing := model.GetPricing()
 	userId, exists := c.Get("id")
-	usableGroup := map[string]string{}
 	groupRatio := map[string]float64{}
 	for s, f := range ratio_setting.GetGroupRatioCopy() {
 		groupRatio[s] = f
@@ -55,21 +153,20 @@ func GetPricing(c *gin.Context) {
 		}
 	}
 
-	usableGroup = service.GetUserUsableGroups(group)
-	pricing = filterPricingByUsableGroups(pricing, usableGroup)
-	// check groupRatio contains usableGroup
-	for group := range ratio_setting.GetGroupRatioCopy() {
-		if _, ok := usableGroup[group]; !ok {
-			delete(groupRatio, group)
-		}
+	groupDescriptions := make(map[string]string)
+	if exists {
+		groupDescriptions = service.GetUserUsableGroups(group)
+	} else {
+		groupDescriptions = publicPricingGroupDescriptions(pricing, groupRatio)
 	}
+	view := buildPricingView(pricing, groupRatio, groupDescriptions, exists)
 
 	c.JSON(200, gin.H{
 		"success":            true,
-		"data":               pricing,
+		"data":               view.pricing,
 		"vendors":            model.GetVendors(),
-		"group_ratio":        groupRatio,
-		"usable_group":       usableGroup,
+		"group_ratio":        view.groupRatio,
+		"usable_group":       view.usableGroup,
 		"supported_endpoint": model.GetSupportedEndpointMap(),
 		"auto_groups":        service.GetUserAutoGroup(group),
 		"pricing_version":    "a42d372ccf0b5dd13ecf71203521f9d2",

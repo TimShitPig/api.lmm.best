@@ -7,8 +7,7 @@ set -euo pipefail
 set +x
 
 repo_root=$(git rev-parse --show-toplevel)
-legacy_revision=5418ce6b6d45ed69167b0aad53f2f595e5bc8de9
-legacy_root="$repo_root/legacy-go-backup/$legacy_revision"
+legacy_root="$repo_root/go"
 runtime_root=${LMM_MODELS_TEST_RUNTIME_ROOT:-/tmp}
 crypto_secret='models-oracle-crypto-secret-2026'
 session_secret='ModelsListener-2026!FixedSyntheticSecret'
@@ -131,9 +130,8 @@ assert_distinct_ports() {
   [[ $count == "$#" ]] || { echo 'ports must be pairwise distinct' >&2; exit 1; }
 }
 assert_frozen_inputs() {
-  [[ -d $legacy_root && -f $legacy_root/SHA256SUMS && -f $legacy_root/GIT-LS-FILES-S.tsv ]] || { echo 'frozen Go archive or manifest missing' >&2; return 1; }
-  (cd "$legacy_root" && sha256sum --check --status SHA256SUMS) || { echo 'frozen Go content hash check failed' >&2; return 1; }
-  frozen_go_manifest_sha256=$(sha256sum "$legacy_root/SHA256SUMS" "$legacy_root/GIT-LS-FILES-S.tsv" | sha256sum | awk '{print $1}')
+  [[ -d $legacy_root && -f $legacy_root/go.mod ]] || { echo 'maintained Go source missing' >&2; return 1; }
+  frozen_go_manifest_sha256=$(bash "$repo_root/rust/behavior-oracle/go-source-manifest.sh" | sha256sum | awk '{print $1}')
   rust_build_input_manifest_sha256=$(rust_build_input_manifest | sha256sum | awk '{print $1}')
   [[ $frozen_go_manifest_sha256 =~ ^[[:xdigit:]]{64}$ && $rust_build_input_manifest_sha256 =~ ^[[:xdigit:]]{64}$ ]] || { echo 'source hash calculation failed' >&2; return 1; }
 }
